@@ -15,9 +15,10 @@ SELECT DISTINCT ON (s.visitor_id)
 FROM sessions s
 LEFT JOIN leads l
 ON s.visitor_id = l.visitor_id 
-WHERE medium IN ('cpc', 'cpm', 'cpa', 'youtube', 'cpp', 'tg')
+WHERE medium <> 'organic' 
 ORDER BY s.visitor_id, s.visit_date DESC
 )
 SELECT *
 FROM Last_Paid_Click
 ORDER BY visit_date, utm_source, utm_medium, utm_campaign
+;
