@@ -1,49 +1,59 @@
 --Datamart for the Last Paid Click attribution model
-WITH Last_Paid_Click AS
-(
-SELECT DISTINCT ON (s.visitor_id)
-    s.visitor_id,
-    visit_date,
-    source AS utm_source,
-    medium AS utm_medium,
-    campaign AS utm_campaign,
-    lead_id,
-    created_at,
-    amount,
-    closing_reason,
-    status_id
-FROM sessions s
-LEFT JOIN leads l
-ON s.visitor_id = l.visitor_id 
-WHERE medium <> 'organic' 
-ORDER BY s.visitor_id, s.visit_date DESC
+WITH LAST_PAID_CLICK AS (
+    SELECT DISTINCT ON (S.VISITOR_ID)
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        AMOUNT,
+        CLOSING_REASON,
+        STATUS_ID
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON S.VISITOR_ID = L.VISITOR_ID
+    WHERE MEDIUM != 'organic'
+    ORDER BY S.VISITOR_ID ASC, S.VISIT_DATE DESC
 )
+
 SELECT *
-FROM Last_Paid_Click
-ORDER BY visit_date, utm_source, utm_medium, utm_campaign
-;
+FROM LAST_PAID_CLICK
+ORDER BY
+    AMOUNT DESC NULLS LAST, VISIT_DATE ASC, UTM_SOURCE ASC, UTM_MEDIUM ASC, UTM_CAMPAIGN ASC;
+--for top 10 by amount
+--LIMIT 10
+
+
+
 
 --Datamart for the Last Paid Click attribution model with ROW_NUMBER
-WITH Last_Paid_Click AS
-(
-SELECT 
-    s.visitor_id,
-    visit_date,
-    source AS utm_source,
-    medium AS utm_medium,
-    campaign AS utm_campaign,
-    lead_id,
-    created_at,
-    amount,
-    closing_reason,
-    status_id,
-    ROW_NUMBER() OVER(PARTITION BY s.visitor_id ORDER BY visit_date DESC) rn
-FROM sessions s
-LEFT JOIN leads l
-ON s.visitor_id = l.visitor_id 
-WHERE medium <> 'organic' 
+WITH LAST_PAID_CLICK AS (
+    SELECT
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        AMOUNT,
+        CLOSING_REASON,
+        STATUS_ID,
+        ROW_NUMBER()
+            OVER (PARTITION BY S.VISITOR_ID ORDER BY VISIT_DATE DESC)
+        AS RN
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON S.VISITOR_ID = L.VISITOR_ID
+    WHERE MEDIUM != 'organic'
 )
+
 SELECT *
-FROM Last_Paid_Click
-WHERE rn = 1
-ORDER BY visit_date, utm_source, utm_medium, utm_campaign
+FROM LAST_PAID_CLICK
+WHERE RN = 1
+ORDER BY
+    AMOUNT DESC NULLS LAST, VISIT_DATE ASC, UTM_SOURCE ASC, UTM_MEDIUM ASC, UTM_CAMPAIGN ASC;
+--for top 10 by amount
+--LIMIT 10
