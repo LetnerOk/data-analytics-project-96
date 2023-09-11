@@ -1,95 +1,110 @@
 --data aggregation from the Last Paid Click attribution model
 
-WITH Paid_Click AS
-(
-SELECT 
-    s.visitor_id,
-    visit_date,
-    source AS utm_source,
-    medium AS utm_medium,
-    campaign AS utm_campaign,
-    lead_id,
-    created_at,
-    COALESCE(amount, 0) AS amount,
-    closing_reason,
-    CASE 
-        WHEN closing_reason = 'Успешная продажа' OR status_id = 142
-        THEN 1 ELSE 0 
-    END purchases,
-    status_id,
-    ROW_NUMBER() OVER(PARTITION BY s.visitor_id ORDER BY visit_date DESC) rn
-FROM sessions s
-LEFT JOIN leads l
-ON s.visitor_id = l.visitor_id 
-WHERE medium <> 'organic' 
+WITH PAID_CLICK AS (
+    SELECT
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        AMOUNT,
+        CLOSING_REASON,
+        STATUS_ID,
+        CASE
+            WHEN CLOSING_REASON = 'Успешная продажа' OR STATUS_ID = 142
+                THEN 1
+            ELSE 0
+        END AS PURCHASES,
+        ROW_NUMBER()
+            OVER (PARTITION BY S.VISITOR_ID ORDER BY VISIT_DATE DESC)
+        AS RN
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON
+            S.VISITOR_ID = L.VISITOR_ID
+            AND VISIT_DATE <= CREATED_AT
+    WHERE MEDIUM != 'organic'
 ),
-Last_Paid_Click AS
-(
-SELECT *,
-DATE_TRUNC('day', visit_date) AS day_visit_date
-FROM Paid_Click
-WHERE rn = 1
-ORDER BY visit_date, utm_source, utm_medium, utm_campaign
+
+LAST_PAID_CLICK AS (
+    SELECT
+        *,
+        DATE_TRUNC('day', VISIT_DATE) AS DAY_VISIT_DATE
+    FROM PAID_CLICK
+    WHERE RN = 1
+    ORDER BY
+        AMOUNT DESC NULLS LAST,
+        VISIT_DATE ASC,
+        UTM_SOURCE ASC,
+        UTM_MEDIUM ASC,
+        UTM_CAMPAIGN ASC
 ),
-vk_daily AS
-(
-SELECT 
-    DATE_TRUNC('day', campaign_date) AS vk_campaign_date,
-    SUM(daily_spent) AS total_vk_spent,
-    utm_source,
-    utm_medium,
-    utm_campaign
-FROM vk_ads
-GROUP BY DATE_TRUNC('day',campaign_date), utm_source, utm_medium, utm_campaign
+
+VK_DAILY AS (
+    SELECT
+        UTM_SOURCE,
+        UTM_MEDIUM,
+        UTM_CAMPAIGN,
+        DATE_TRUNC('day', CAMPAIGN_DATE) AS VK_CAMPAIGN_DATE,
+        SUM(DAILY_SPENT) AS TOTAL_VK_SPENT
+    FROM VK_ADS
+    GROUP BY
+        DATE_TRUNC('day', CAMPAIGN_DATE), UTM_SOURCE, UTM_MEDIUM, UTM_CAMPAIGN
 ),
-ya_daily AS
-(
-SELECT 
-    DATE_TRUNC('day', campaign_date) AS ya_campaign_date,
-    SUM(daily_spent) AS total_ya_spent,
-    utm_source,
-    utm_medium,
-    utm_campaign
-FROM ya_ads
-GROUP BY DATE_TRUNC('day',campaign_date), utm_source, utm_medium, utm_campaign
+
+YA_DAILY AS (
+    SELECT
+        UTM_SOURCE,
+        UTM_MEDIUM,
+        UTM_CAMPAIGN,
+        DATE_TRUNC('day', CAMPAIGN_DATE) AS YA_CAMPAIGN_DATE,
+        SUM(DAILY_SPENT) AS TOTAL_YA_SPENT
+    FROM YA_ADS
+    GROUP BY
+        DATE_TRUNC('day', CAMPAIGN_DATE), UTM_SOURCE, UTM_MEDIUM, UTM_CAMPAIGN
 ),
-leads AS
-(
-SELECT
-    day_visit_date AS visit_date,
-    lpc.utm_source,
-    lpc.utm_medium,
-    lpc.utm_campaign,
-    COUNT(visitor_id) AS visitors_count,
-    COUNT(lead_id) AS leads_count,
-    SUM(purchases) AS purchases_count,
-    SUM(amount) AS revenue
-FROM Last_Paid_Click lpc
---ORDER BY visit_date, visitors_count DESC, l.utm_source, l.utm_medium, l.utm_campaign
-GROUP BY day_visit_date, lpc.utm_source, lpc.utm_medium, lpc.utm_campaign
+
+LEADS_AGR AS (
+    SELECT
+        DAY_VISIT_DATE AS VISIT_DATE,
+        LPC.UTM_SOURCE,
+        LPC.UTM_MEDIUM,
+        LPC.UTM_CAMPAIGN,
+        COUNT(VISITOR_ID) AS VISITORS_COUNT,
+        COUNT(LEAD_ID) AS LEADS_COUNT,
+        SUM(PURCHASES) AS PURCHASES_COUNT,
+        SUM(COALESCE(AMOUNT, 0)) AS REVENUE
+    FROM LAST_PAID_CLICK AS LPC
+    GROUP BY DAY_VISIT_DATE, LPC.UTM_SOURCE, LPC.UTM_MEDIUM, LPC.UTM_CAMPAIGN
 )
+
 SELECT
-    visit_date,
-    l.utm_source,
-    l.utm_medium,
-    l.utm_campaign,
-    visitors_count,
-    COALESCE(total_ya_spent,0) + COALESCE(total_vk_spent,0) AS total_cost,
-    leads_count,
-    purchases_count,
-    revenue
-FROM leads l
-LEFT JOIN vk_daily vk
-ON l.visit_date = vk.vk_campaign_date AND
-   l.utm_source = vk.utm_source AND
-   l.utm_medium = vk.utm_medium AND
-   l.utm_campaign = vk.utm_campaign
-LEFT JOIN ya_daily ya
-ON l.visit_date = ya.ya_campaign_date AND
-   l.utm_source = ya.utm_source AND
-   l.utm_medium = ya.utm_medium AND
-   l.utm_campaign = ya.utm_campaign
-ORDER BY visit_date, visitors_count DESC, l.utm_source, l.utm_medium, l.utm_campaign
+    VISIT_DATE,
+    L.UTM_SOURCE,
+    L.UTM_MEDIUM,
+    L.UTM_CAMPAIGN,
+    VISITORS_COUNT,
+    LEADS_COUNT,
+    PURCHASES_COUNT,
+    REVENUE,
+    COALESCE(TOTAL_YA_SPENT, 0) + COALESCE(TOTAL_VK_SPENT, 0) AS TOTAL_COST
+FROM LEADS_AGR AS L
+LEFT JOIN VK_DAILY AS VK
+    ON
+        L.VISIT_DATE = VK.VK_CAMPAIGN_DATE
+        AND L.UTM_SOURCE = VK.UTM_SOURCE
+        AND L.UTM_MEDIUM = VK.UTM_MEDIUM
+        AND L.UTM_CAMPAIGN = VK.UTM_CAMPAIGN
+LEFT JOIN YA_DAILY AS YA
+    ON
+        L.VISIT_DATE = YA.YA_CAMPAIGN_DATE
+        AND L.UTM_SOURCE = YA.UTM_SOURCE
+        AND L.UTM_MEDIUM = YA.UTM_MEDIUM
+        AND L.UTM_CAMPAIGN = YA.UTM_CAMPAIGN
+ORDER BY
+    REVENUE DESC NULLS LAST, VISIT_DATE ASC, VISITORS_COUNT DESC, L.UTM_SOURCE ASC, L.UTM_MEDIUM ASC, L.UTM_CAMPAIGN ASC;
 --For top 15 by purchases_count change sorting and add filter with limit
---ORDER BY purchases_count DESC
+--ORDER BY purchases_count DESC, revenue DESC
 --LIMIT 15
