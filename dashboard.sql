@@ -54,6 +54,17 @@ HAVING  SUM(total_cost) > 0
 AND (SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost) < 0
 ORDER BY 4
 
+/********************************************************/
+--Number of visitors per day
+SELECT
+    TO_CHAR(visit_date, 'YYYY-MM-DD') AS Day_of_month,
+    COUNT(DISTINCT visitor_id)
+FROM sessions s
+GROUP BY 1
+ORDER BY 2 DESC
+;
+
+/********************************************************/
 --Number of visitors per month
 SELECT
     TO_CHAR(visit_date, 'Month') AS Month,
@@ -74,7 +85,20 @@ ORDER BY 3 DESC
 ;
 
 /********************************************************/
---Number of visitors per month for pie chart
+-- Number of visitors by source/mediu/campaing  per month
+SELECT
+    TO_CHAR(visit_date, 'Month') AS Month,
+    s.source AS utm_source,
+    s.medium AS utm_medium,
+    s.campaign AS utm_campaign,
+    COUNT(DISTINCT visitor_id) AS count_visitors
+FROM sessions s
+GROUP BY 1,2,3,4
+ORDER BY 5 DESC
+; 
+
+/********************************************************/
+--Number of visitors by source per month for pie chart
 WITH count_visit AS
 (
 SELECT
@@ -113,15 +137,6 @@ GROUP BY 1, 2, 3
 ORDER BY 4 DESC
 ;
 
-/********************************************************/
---Number of visitors per day
-SELECT
-    TO_CHAR(visit_date, 'YYYY-MM-DD') AS Day_of_month,
-    COUNT(DISTINCT visitor_id)
-FROM sessions s
-GROUP BY 1
-ORDER BY 2 DESC
-;
 
 /********************************************************/
 --Number of visitors by source per day
@@ -164,10 +179,10 @@ FROM tab
 WHERE rn <= 10
 
 /********************************************************/
---Number of leads per month
+--Number of leads per month 
 SELECT
     TO_CHAR(created_at, 'Month'),
-    COUNT(DISTINCT lead_id)
+    COUNT(DISTINCT lead_id) count_leads
 FROM leads
 GROUP BY TO_CHAR(created_at, 'Month')
 ;
@@ -205,7 +220,7 @@ ORDER BY 5 DESC
 /********************************************************/
 --Number of leads by source per day
 SELECT 
-     TO_CHAR(created_at , 'YYYY-MM-DD') AS Day_of_week,
+     TO_CHAR(created_at , 'YYYY-MM-DD') AS Day_of_month,
      s.source,
      COUNT(DISTINCT lead_id) AS count_leads
 FROM leads l
@@ -228,7 +243,7 @@ GROUP BY 1
 ;
 
 /********************************************************/
---Number of visitors,leads and clients by source per month with non-zero leads
+--Number of visitors, leads and clients by source per month with non-zero leads
 WITH visit_lead AS
 (
 SELECT
@@ -247,7 +262,6 @@ LEFT JOIN leads l
 ON s.visitor_id = l.visitor_id
 )
 SELECT
-     TO_CHAR(visit_date, 'Month') AS Month,
      source,
      COUNT(visitor_id) AS count_visitors,
      COUNT(lead_id) AS count_leads,
@@ -259,7 +273,7 @@ ORDER BY 3 DESC
 ;
 
 /********************************************************/
---Conversion of visitors to leads and leads to clients
+--Conversion of visitors to leads, leads to clients and visitors to clients
 WITH visit_lead AS
 (
 SELECT
@@ -280,7 +294,8 @@ ON s.visitor_id = l.visitor_id
 SELECT
      source,
      ROUND(COUNT(lead_id) * 100.00 / COUNT(visitor_id), 2) AS conv_visit_to_lead,
-     ROUND(SUM(purchases) * 100.00 /  COUNT(lead_id), 2) AS conv_lead_to_client
+     ROUND(SUM(purchases) * 100.00 / COUNT(lead_id), 2) AS conv_lead_to_client,
+     ROUND(SUM(purchases) * 100.00 / COUNT(visitor_id), 2) AS conv_visit_to_client
 FROM visit_lead
 GROUP BY TO_CHAR(visit_date, 'Month'), source
 HAVING COUNT(lead_id) != 0
@@ -307,12 +322,11 @@ LEFT JOIN leads l
 ON s.visitor_id = l.visitor_id
 )
 SELECT
-     TO_CHAR(visit_date, 'Month') AS Month,
      COUNT(DISTINCT visitor_id) AS count_visitors,
      COUNT(DISTINCT lead_id) AS count_leads,
      SUM(purchases)
 FROM visit_lead
-GROUP BY 1
+GROUP BY TO_CHAR(day_visit_date, 'Month')
 ;
 
 /********************************************************/
@@ -348,9 +362,8 @@ FROM Paid_Click
 WHERE rn = 1
 )
 SELECT 
-    TO_CHAR(day_visit_date, 'Month') AS Name_month,
     COUNT(visitor_id) AS count_visitors,
     COUNT(lead_id) AS count_leads,
     SUM(purchases) AS count_purchases
 FROM Last_Paid_Click
-GROUP BY 1
+GROUP BY TO_CHAR(day_visit_date, 'Month')
