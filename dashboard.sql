@@ -3,10 +3,10 @@
 -- Metrics by source for LPC model
 SELECT
    utm_source,
-   SUM(total_cost)/SUM(visitors_count) AS CPU,
-   SUM(total_cost)/SUM(leads_count) AS CPL,
-   SUM(total_cost)/SUM(purchases_count) AS CPPU,
-  (SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost) AS ROI
+   ROUND(SUM(total_cost)/SUM(visitors_count), 2) AS CPU,
+   ROUND(SUM(total_cost)/SUM(leads_count), 2) AS CPL,
+   ROUND(SUM(total_cost)/SUM(purchases_count), 2) AS CPPU,
+   ROUND((SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost), 2) AS ROI
 FROM cost_revenue
 GROUP BY utm_source
 HAVING  SUM(total_cost) > 0
@@ -14,15 +14,16 @@ HAVING  SUM(total_cost) > 0
     AND SUM(purchases_count) > 0
     AND SUM(revenue) > 0
 
+/********************************************************/
 -- Metrics by source, medium and campaign for LPC model
 SELECT
    utm_source,
    utm_medium,
    utm_campaign,
-   SUM(total_cost)/SUM(visitors_count) AS CPU,
-   SUM(total_cost)/SUM(leads_count) AS CPL,
-   SUM(total_cost)/SUM(purchases_count) AS CPPU,
-  (SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost) AS ROI
+   ROUND(SUM(total_cost)/SUM(visitors_count), 2) AS CPU,
+   ROUND(SUM(total_cost)/SUM(leads_count), 2) AS CPL,
+   ROUND(SUM(total_cost)/SUM(purchases_count), 2) AS CPPU,
+   ROUND((SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost), 2) AS ROI
 FROM cost_revenue
 GROUP BY 1, 2, 3
 HAVING  SUM(total_cost) > 0
@@ -30,29 +31,35 @@ HAVING  SUM(total_cost) > 0
     AND SUM(purchases_count) > 0
     AND SUM(revenue) > 0
 
+/********************************************************/
 -- ROI >= 0 by source, medium and campaign with LPC model
 SELECT
    utm_source,
    utm_medium,
    utm_campaign,
+   SUM(revenue) AS revenue,
+   SUM(total_cost) AS total_cost,
   ROUND((SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost), 2) AS ROI
 FROM cost_revenue
 GROUP BY 1, 2, 3
 HAVING  SUM(total_cost) > 0
 AND (SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost) >= 0
-ORDER BY 4 DESC
+ORDER BY 6 DESC
 
+/********************************************************/
 -- ROI < 0 by source, medium and campaign with LPC model
 SELECT
    utm_source,
    utm_medium,
    utm_campaign,
+   SUM(revenue) AS revenue,
+   SUM(total_cost) AS total_cost,
   ROUND((SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost), 2) AS ROI
 FROM cost_revenue
 GROUP BY 1, 2, 3
 HAVING  SUM(total_cost) > 0
 AND (SUM(revenue) - SUM(total_cost))*100.00/SUM(total_cost) < 0
-ORDER BY 4
+ORDER BY 6 DESC
 
 /********************************************************/
 --Number of visitors per day
@@ -201,6 +208,34 @@ ORDER BY 3 DESC
 ;
 
 /********************************************************/
+--Number of leads by source per month for pie chart
+WITH count_lead AS
+(
+SELECT 
+     TO_CHAR(created_at , 'Month') AS Month,
+     s.source,
+     COUNT(DISTINCT lead_id) AS count_leads,
+         CASE
+        WHEN source = 'yandex' THEN 'yandex'
+        WHEN source = 'vk' THEN 'vk'
+        WHEN source IN 
+            ('google', 'organic', 'bing.com', 'baidu.com', 'yandex.com', 'go.mail.ru', 'search.ukr.net')
+            THEN 'бесплатные источники'
+        ELSE 'другие источники'
+    END name_source 
+FROM leads l
+INNER JOIN sessions s
+USING(visitor_id) 
+GROUP BY 1, 2
+)
+SELECT 
+    name_source,
+    SUM(count_leads)
+FROM count_lead
+GROUP BY 1
+;
+
+/********************************************************/
 --Number of leads by source/mediu/campaing per month
 SELECT
     TO_CHAR(created_at, 'Month'),
@@ -218,6 +253,22 @@ ORDER BY 5 DESC
 ;
 
 /********************************************************/
+-- Number of visitors by source/mediu/campaing per month for paid campaign
+SELECT
+    TO_CHAR(visit_date, 'Month') AS Month,
+    s.source AS utm_source,
+    s.medium AS utm_medium,
+    s.campaign AS utm_campaign,
+    COUNT(DISTINCT visitor_id) AS count_visitors
+FROM sessions s
+WHERE s.medium != 'organic'
+GROUP BY 1,2,3,4
+HAVING COUNT(DISTINCT visitor_id) > 1
+ORDER BY utm_source DESC, 5 DESC
+; 
+
+
+/********************************************************/
 --Number of leads by source per day
 SELECT 
      TO_CHAR(created_at , 'YYYY-MM-DD') AS Day_of_month,
@@ -229,6 +280,17 @@ USING(visitor_id)
 GROUP BY 1, 2
 ;
 
+/********************************************************/
+--Number of visitors by source per day for paid campaign
+SELECT
+    TO_CHAR(visit_date, 'YYYY-MM-DD') AS Day_of_month,
+    source,
+    COUNT(DISTINCT visitor_id)
+FROM sessions s
+WHERE s.medium != 'organic'
+GROUP BY 1,2
+ORDER BY 1, 3 DESC 
+;
 
 /********************************************************/
 --Number of visitors and leads per month
@@ -367,3 +429,45 @@ SELECT
     SUM(purchases) AS count_purchases
 FROM Last_Paid_Click
 GROUP BY TO_CHAR(day_visit_date, 'Month')
+
+/********************************************************/
+--Total cost for yandex and vk per day
+SELECT
+    TO_CHAR(campaign_date, 'YYYY-MM-DD') AS day_of_month,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    SUM(daily_spent) AS spent 
+FROM vk_ads vk
+GROUP BY 1,2,3,4
+UNION ALL
+SELECT
+    TO_CHAR(campaign_date, 'YYYY-MM-DD') AS day_of_month,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    SUM(daily_spent) AS spent  
+FROM ya_ads ya
+GROUP BY 1,2,3,4
+ORDER BY campaign_date
+
+/********************************************************/
+--Total cost for yandex and vk per month
+SELECT
+    TO_CHAR(campaign_date, 'Month') AS month,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    SUM(daily_spent) AS spent 
+FROM vk_ads vk
+GROUP BY 1,2,3,4
+UNION ALL
+SELECT
+    TO_CHAR(campaign_date, 'Month') AS month,
+    utm_source,
+    utm_medium,
+    utm_campaign,
+    SUM(daily_spent) AS spent  
+FROM ya_ads ya
+GROUP BY 1,2,3,4
+ORDER BY 1
