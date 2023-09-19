@@ -105,23 +105,37 @@ ORDER BY 5 DESC
 ; 
 
 /********************************************************/
+-- Number of visitors by source/mediu/campaing per month for paid campaign
+SELECT
+    TO_CHAR(visit_date, 'Month') AS Month,
+    s.source AS utm_source,
+    s.medium AS utm_medium,
+    s.campaign AS utm_campaign,
+    COUNT(DISTINCT visitor_id) AS count_visitors
+FROM sessions s
+WHERE s.medium != 'organic'
+GROUP BY 1,2,3,4
+HAVING COUNT(DISTINCT visitor_id) > 1
+ORDER BY utm_source DESC, 5 DESC
+; 
+
+/********************************************************/
 --Number of visitors by source per month for pie chart
 WITH count_visit AS
 (
 SELECT
     TO_CHAR(visit_date, 'Month') AS Month,
     source,
+    s.medium,
     COUNT(DISTINCT visitor_id) AS count_visitors,
     CASE
-        WHEN source = 'yandex' THEN 'yandex'
-        WHEN source = 'vk' THEN 'vk'
-        WHEN source IN 
-            ('google', 'organic', 'bing.com', 'baidu.com', 'yandex.com', 'go.mail.ru', 'search.ukr.net')
-            THEN 'бесплатные источники'
+        WHEN source = 'yandex' THEN source
+        WHEN source = 'vk' THEN source
+        WHEN s.medium = 'organic' THEN 'бесплатные источники'
         ELSE 'другие источники'
     END name_source 
 FROM sessions s
-GROUP BY 1,2
+GROUP BY 1,2, 3
 )
 SELECT 
     Month,
@@ -156,6 +170,17 @@ GROUP BY 1,2
 ORDER BY 1, 3 DESC 
 ;
 
+/********************************************************/
+--Number of visitors by source per day for paid campaign
+SELECT
+    TO_CHAR(visit_date, 'YYYY-MM-DD') AS Day_of_month,
+    source,
+    COUNT(DISTINCT visitor_id)
+FROM sessions s
+WHERE s.medium != 'organic'
+GROUP BY 1,2
+ORDER BY 1, 3 DESC 
+;
 
 /********************************************************/
 -- 10 sources with max of visitors number by source per week
@@ -214,23 +239,22 @@ WITH count_lead AS
 SELECT 
      TO_CHAR(created_at , 'Month') AS Month,
      s.source,
-     COUNT(DISTINCT lead_id) AS count_leads,
+     s.medium,
+     COUNT(lead_id) AS count_leads,
          CASE
         WHEN source = 'yandex' THEN 'yandex'
         WHEN source = 'vk' THEN 'vk'
-        WHEN source IN 
-            ('google', 'organic', 'bing.com', 'baidu.com', 'yandex.com', 'go.mail.ru', 'search.ukr.net')
-            THEN 'бесплатные источники'
+        WHEN s.medium = 'organic' THEN 'бесплатные источники'
         ELSE 'другие источники'
     END name_source 
 FROM leads l
 INNER JOIN sessions s
 USING(visitor_id) 
-GROUP BY 1, 2
+GROUP BY 1, 2, s.medium
 )
 SELECT 
     name_source,
-    SUM(count_leads)
+    SUM(count_leads) AS group_of_leads
 FROM count_lead
 GROUP BY 1
 ;
@@ -253,22 +277,6 @@ ORDER BY 5 DESC
 ;
 
 /********************************************************/
--- Number of visitors by source/mediu/campaing per month for paid campaign
-SELECT
-    TO_CHAR(visit_date, 'Month') AS Month,
-    s.source AS utm_source,
-    s.medium AS utm_medium,
-    s.campaign AS utm_campaign,
-    COUNT(DISTINCT visitor_id) AS count_visitors
-FROM sessions s
-WHERE s.medium != 'organic'
-GROUP BY 1,2,3,4
-HAVING COUNT(DISTINCT visitor_id) > 1
-ORDER BY utm_source DESC, 5 DESC
-; 
-
-
-/********************************************************/
 --Number of leads by source per day
 SELECT 
      TO_CHAR(created_at , 'YYYY-MM-DD') AS Day_of_month,
@@ -278,18 +286,6 @@ FROM leads l
 INNER JOIN sessions s
 USING(visitor_id) 
 GROUP BY 1, 2
-;
-
-/********************************************************/
---Number of visitors by source per day for paid campaign
-SELECT
-    TO_CHAR(visit_date, 'YYYY-MM-DD') AS Day_of_month,
-    source,
-    COUNT(DISTINCT visitor_id)
-FROM sessions s
-WHERE s.medium != 'organic'
-GROUP BY 1,2
-ORDER BY 1, 3 DESC 
 ;
 
 /********************************************************/
