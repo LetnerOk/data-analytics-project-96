@@ -461,3 +461,35 @@ SELECT
 FROM ya_ads ya
 GROUP BY 1,2,3,4
 ORDER BY 1
+
+/********************************************************/
+--number of days in which 90% of leads are closed on advertising
+WITH PAID_CLICK AS (
+    SELECT
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        CREATED_AT - VISIT_DATE AS DYA_COUNT,
+        ROW_NUMBER()
+            OVER (PARTITION BY S.VISITOR_ID ORDER BY VISIT_DATE DESC)
+        AS RN
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON
+            S.VISITOR_ID = L.VISITOR_ID
+            AND VISIT_DATE <= CREATED_AT
+    WHERE
+        MEDIUM != 'organic'
+        AND (CLOSING_REASON = 'Успешная продажа' OR STATUS_ID = 142)
+)
+
+SELECT
+    PERCENTILE_DISC(0.9) WITHIN GROUP (
+        ORDER BY DYA_COUNT
+    ) AS DAYS_OF_CLOSING_LEAD
+FROM PAID_CLICK
+WHERE RN = 1
