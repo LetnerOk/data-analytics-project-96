@@ -1,3 +1,52 @@
+--Datamart for the Last Paid Click attribution model with DISTINCT ON
+WITH LAST_PAID_CLICK AS (
+    SELECT DISTINCT ON (S.VISITOR_ID)
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        AMOUNT,
+        CLOSING_REASON,
+        STATUS_ID
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON S.VISITOR_ID = L.VISITOR_ID
+    WHERE MEDIUM != 'organic'
+    ORDER BY S.VISITOR_ID ASC, S.VISIT_DATE DESC
+)
+
+SELECT *
+FROM LAST_PAID_CLICK
+ORDER BY VISIT_DATE, UTM_SOURCE, UTM_MEDIUM, UTM_CAMPAIGN;
+
+--top 10 by amount
+WITH LAST_PAID_CLICK AS (
+    SELECT DISTINCT ON (S.VISITOR_ID)
+        S.VISITOR_ID,
+        VISIT_DATE,
+        SOURCE AS UTM_SOURCE,
+        MEDIUM AS UTM_MEDIUM,
+        CAMPAIGN AS UTM_CAMPAIGN,
+        LEAD_ID,
+        CREATED_AT,
+        AMOUNT,
+        CLOSING_REASON,
+        STATUS_ID
+    FROM SESSIONS AS S
+    LEFT JOIN LEADS AS L
+        ON S.VISITOR_ID = L.VISITOR_ID
+    WHERE MEDIUM != 'organic' --IN ('cpc', 'cpm', 'cpa', 'youtube', 'cpp', 'tg')
+    ORDER BY S.VISITOR_ID ASC, S.VISIT_DATE DESC
+)
+
+SELECT *
+FROM LAST_PAID_CLICK
+ORDER BY amount DESC NULLS LAST, visit_date, utm_source, utm_medium, utm_campaign
+LIMIT 10
+
 --Datamart for the Last Paid Click attribution model with ROW_NUMBER
 WITH LAST_PAID_CLICK AS (
     SELECT
