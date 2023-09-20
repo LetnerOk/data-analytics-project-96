@@ -108,7 +108,5 @@ LEFT JOIN YA_DAILY AS YA
         AND L.UTM_CAMPAIGN = YA.UTM_CAMPAIGN
 ORDER BY
     REVENUE DESC NULLS LAST, VISIT_DATE ASC, VISITORS_COUNT DESC, L.UTM_SOURCE ASC, L.UTM_MEDIUM ASC, L.UTM_CAMPAIGN ASC
---For top 15 by purchases_count change sorting and add filter with limit
---ORDER BY purchases_count DESC, revenue DESC
-LIMIT 15
+--LIMIT 15
 ;
