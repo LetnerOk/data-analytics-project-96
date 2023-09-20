@@ -190,13 +190,7 @@ WITH tab AS
 SELECT
     source,
     COUNT(DISTINCT visitor_id) AS count_visitors,
-    case 
-        WHEN TO_CHAR(visit_date, 'WW') = '22' THEN '1 неделя'
-        WHEN TO_CHAR(visit_date, 'WW') = '23' THEN '2 неделя'
-        WHEN TO_CHAR(visit_date, 'WW') = '24' THEN '3 неделя'
-        WHEN TO_CHAR(visit_date, 'WW') = '25' THEN '4 неделя'
-        ELSE '5 неделя'
-    end Num_week,
+    TO_CHAR(visit_date, 'WW') AS Num_week,
     ROW_NUMBER() OVER(partition BY TO_CHAR(visit_date, 'WW') ORDER BY COUNT(DISTINCT visitor_id) DESC) AS rn
 FROM sessions s
 GROUP BY source,TO_CHAR(visit_date, 'WW')
