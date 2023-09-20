@@ -20,7 +20,7 @@ WITH LAST_PAID_CLICK AS (
 
 SELECT *
 FROM LAST_PAID_CLICK
-ORDER BY VISIT_DATE, UTM_SOURCE, UTM_MEDIUM, UTM_CAMPAIGN;
+ORDER BY AMOUNT DESC NULLS LAST, VISIT_DATE, UTM_SOURCE, UTM_MEDIUM, UTM_CAMPAIGN;
 
 --top 10 by amount
 WITH LAST_PAID_CLICK AS (
@@ -44,7 +44,7 @@ WITH LAST_PAID_CLICK AS (
 
 SELECT *
 FROM LAST_PAID_CLICK
-ORDER BY amount DESC NULLS LAST, visit_date, utm_source, utm_medium, utm_campaign
+ORDER BY AMOUNT DESC NULLS LAST, visit_date, utm_source, utm_medium, utm_campaign
 LIMIT 10
 
 --Datamart for the Last Paid Click attribution model with ROW_NUMBER
@@ -66,6 +66,7 @@ WITH LAST_PAID_CLICK AS (
     FROM SESSIONS AS S
     LEFT JOIN LEADS AS L
         ON S.VISITOR_ID = L.VISITOR_ID
+        AND VISIT_DATE <= CREATED_AT
     WHERE MEDIUM != 'organic'
 )
 
